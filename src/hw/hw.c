@@ -7,6 +7,7 @@
 
 
 #include "hw.h"
+#include "uart.h"
 
 void hwInit(void)
 {
@@ -14,6 +15,9 @@ void hwInit(void)
 	bspInit();
 
 	ledInit();
+
+	uartInit();
+	uartOpen(_DEF_UART1, 57600);
 
 
 }
