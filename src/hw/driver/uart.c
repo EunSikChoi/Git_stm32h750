@@ -23,24 +23,29 @@ typedef struct
 {
   bool     is_open;
   uint32_t baud;
-
+  bool is_tx_done;
 
   uint8_t  rx_buf[UART_RX_BUF_LENGTH];
+  uint8_t  tx_buf[UART_RX_BUF_LENGTH];
   qbuffer_t qbuffer;
   UART_HandleTypeDef *p_huart;
   DMA_HandleTypeDef  *p_hdma_rx;
+  DMA_HandleTypeDef  *p_hdma_tx;
 
 } uart_tbl_t;
 
-
+#if 1
 static __attribute__((section(".non_cache"))) uart_tbl_t uart_tbl[UART_MAX_CH];
 
+#else
+uart_tbl_t uart_tbl[UART_MAX_CH];
+#endif
 
 
  DMA_HandleTypeDef hdma_uart4_rx;
+ DMA_HandleTypeDef hdma_uart4_tx;
  UART_HandleTypeDef huart4;
 
- static uint8_t rx_data[UART_MAX_CH];  // rx INT buf
 
 
 #ifdef _USE_HW_CLI
@@ -56,6 +61,7 @@ bool uartInit(void)
   {
     uart_tbl[i].is_open = false;
     uart_tbl[i].baud = 57600;
+    uart_tbl[i].is_tx_done = true;
   }
 
 
@@ -81,6 +87,7 @@ bool uartOpen(uint8_t ch, uint32_t baud)
 
     	uart_tbl[ch].p_huart   = &huart4;
     	uart_tbl[ch].p_hdma_rx = &hdma_uart4_rx;
+    	uart_tbl[ch].p_hdma_tx = &hdma_uart4_tx;
 
     	uart_tbl[ch].p_huart->Instance    = UART4;
 			uart_tbl[ch].p_huart->Init.BaudRate    = baud;
@@ -101,6 +108,12 @@ bool uartOpen(uint8_t ch, uint32_t baud)
 			qbufferCreate(&uart_tbl[ch].qbuffer, &uart_tbl[ch].rx_buf[0], UART_RX_BUF_LENGTH);
 
 			__HAL_RCC_DMA1_CLK_ENABLE();
+
+		  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
+		  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+
+		  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
+		  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
       if (HAL_UART_Init(uart_tbl[ch].p_huart) != HAL_OK)
       {
@@ -171,7 +184,7 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 
     case _DEF_UART1:
 
-	#if 1 // case 1  // Tx polling
+	#if 0 // case 1  // Tx polling
     	status = HAL_UART_Transmit(uart_tbl[ch].p_huart, p_data, length, 100);
 
 		  if (status == HAL_OK)
@@ -205,7 +218,7 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 	break;
 #endif
 
-	#if 0 // case 4  //  wait Tx, DMA, make buffer
+	#if 1 // case 4  //  wait Tx, DMA, make buffer
 
   pre_time = millis();
 
@@ -218,10 +231,10 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 
 		  for(int i = 0; i < length ; i++)
 		  {
-		  	tx_buf[0][i] = p_data[i];
+		  	uart_tbl[ch].tx_buf[i] = p_data[i];
 		  }
 
-		  status = HAL_UART_Transmit_DMA(uart_tbl[ch].handle, &tx_buf[0][0], length);
+		  status = HAL_UART_Transmit_DMA(uart_tbl[ch].p_huart, &uart_tbl[ch].tx_buf[0], length);
 
 		  if (status == HAL_OK)
 		  {
@@ -287,22 +300,20 @@ uint32_t uartGetBaud(uint8_t ch)
 //}
 //
 //
-//void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-//{
-//
-//   if(huart->Instance == UART4)
-//  {
-//	   __HAL_UART_CLEAR_FLAG(&huart4,UART_FLAG_RXNE);
-//		 __HAL_UART_ENABLE_IT(&huart4, UART_IT_RXNE);
-//
-// 	 //is_tx_done[_DEF_UART2] = true; // 수신 준비 됬다고 알려주는 신호
-//  	 uart_tbl[_DEF_UART1].is_tx_done  = true;
-//
-//  	 return;
-// }
-//
-//
-//}
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+
+   if(huart->Instance == UART4)
+  {
+
+  	 uart_tbl[_DEF_UART1].is_tx_done  = true;
+
+  	 return;
+ }
+
+
+}
+
 
 
 
@@ -359,6 +370,24 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
 
     __HAL_LINKDMA(uartHandle,hdmarx,hdma_uart4_rx);
 
+    /* UART4_TX Init */
+    hdma_uart4_tx.Instance = DMA1_Stream1;
+    hdma_uart4_tx.Init.Request = DMA_REQUEST_UART4_TX;
+    hdma_uart4_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_uart4_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_uart4_tx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_uart4_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_uart4_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_uart4_tx.Init.Mode = DMA_NORMAL;
+    hdma_uart4_tx.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_uart4_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    if (HAL_DMA_Init(&hdma_uart4_tx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(uartHandle,hdmatx,hdma_uart4_tx);
+
     /* UART4 interrupt Init */
     HAL_NVIC_SetPriority(UART4_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(UART4_IRQn);
@@ -389,6 +418,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 
     /* UART4 DMA DeInit */
     HAL_DMA_DeInit(uartHandle->hdmarx);
+    HAL_DMA_DeInit(uartHandle->hdmatx);
 
     /* UART4 interrupt Deinit */
     HAL_NVIC_DisableIRQ(UART4_IRQn);
