@@ -27,23 +27,6 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length);
 uint32_t uartPrintf(uint8_t ch, char *fmt, ...);
 uint32_t uartGetBaud(uint8_t ch);
 
-typedef struct
-{
-
-  bool is_open;
-  bool is_tx_done;
-  bool is_tx_error;
-  uint8_t ch;
-  uint32_t baud;
-  qbuffer_t qbuffer;
-
-  UART_HandleTypeDef *handle;
-  DMA_HandleTypeDef  *p_hdma_rx;
-  DMA_HandleTypeDef  *p_hdma_tx;
-
-
-}uart_tbl_t;
-
 
 #endif
 

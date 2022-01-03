@@ -14,7 +14,7 @@
 
 void apInit(void)
 {
-	hwInit();
+	uartOpen(_DEF_UART1, 57600);
 }
 
 void apMain(void)
@@ -30,7 +30,7 @@ void apMain(void)
 		{
 			pre_time = millis();
 
-			//ledToggle(_DEF_LED1); // LED
+			ledToggle(_DEF_LED1); // LED
 			ledToggle(_DEF_LED2); // BLUE
 
 		}
