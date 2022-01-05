@@ -26,7 +26,7 @@ void apMain(void)
 
 	while(1)
 	{
-		if(millis()-pre_time >= 1000) //
+		if(millis()-pre_time >= 2000) //
 		{
 			pre_time = millis();
 

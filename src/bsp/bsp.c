@@ -24,10 +24,14 @@ void bspInit(void)
   __HAL_RCC_GPIOI_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
 
+#if 0
+
   SCB_EnableICache();
   SCB_EnableDCache();
 
   MPUConfig();
+
+#endif
 }
 
 void delay(uint32_t ms)

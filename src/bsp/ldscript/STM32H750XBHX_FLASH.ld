@@ -179,6 +179,7 @@ SECTIONS
     libgcc.a ( * )
   }
   
+  /* 
     .non_cache :
   {
     . = ALIGN(4);      
@@ -186,6 +187,7 @@ SECTIONS
     *(.non_cache*)   
     . = ALIGN(4);       
   } >RAM_D3 AT> FLASH
+  */ 
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
