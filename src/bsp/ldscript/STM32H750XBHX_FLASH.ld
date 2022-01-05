@@ -170,7 +170,7 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >RAM_D1
-
+    
   /* Remove information from the compiler libraries */
   /DISCARD/ :
   {
@@ -178,16 +178,27 @@ SECTIONS
     libm.a ( * )
     libgcc.a ( * )
   }
+    
+   /* creat section */
+  _siram_code = LOADADDR(.ram_code);  /* flash영역  0x0800 번지 주소 복사 */ 
+    .ram_code :
+  {
+    . = ALIGN(4); 
+    _sram_code = .;    /* sram 영역 시작 주소   */ 
+    *(.ram_code)       /* ram_code 섹션 생성   */
+    *(.ram_code*)      /* ram_code* 섹션 생성  */
+    . = ALIGN(4);   
+    _eram_code = .;    /* sram 영역 종료주소    */
+  } >RAM_D3 AT> FLASH  /* 저장될 메모리 위치 설정     */
   
-  /* 
+   /* creat section */
     .non_cache :
   {
     . = ALIGN(4);      
     *(.non_cache)
     *(.non_cache*)   
     . = ALIGN(4);       
-  } >RAM_D3 AT> FLASH
-  */ 
+  } >RAM_D3 AT> FLASH  /* 저장될 메모리 위치 설정 */  
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
