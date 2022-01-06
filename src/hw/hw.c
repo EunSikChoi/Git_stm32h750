@@ -20,4 +20,6 @@ void hwInit(void)
 
 	uartInit();
 
+	buttonInit();
+
 }
