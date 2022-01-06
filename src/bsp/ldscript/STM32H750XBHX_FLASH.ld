@@ -189,7 +189,7 @@ SECTIONS
     *(.ram_code*)      /* ram_code* 섹션 생성  */
     . = ALIGN(4);   
     _eram_code = .;    /* sram 영역 종료주소    */
-  } >RAM_D3 AT> FLASH  /* 저장될 메모리 위치 설정     */
+  } >ITCMRAM AT> FLASH  /* 저장될 메모리 위치 설정     */
   
    /* creat section */
     .non_cache :
