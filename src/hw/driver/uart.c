@@ -10,6 +10,10 @@
 
 #include "uart.h"
 #include "qbuffer.h"
+#ifdef _USE_HW_CLI
+#include "cli.h"
+#endif
+
 
 
 
@@ -49,9 +53,7 @@ uart_tbl_t uart_tbl[UART_MAX_CH];
 
 
 #ifdef _USE_HW_CLI
-
-static void cliUart(cli_args_t *args);
-
+ static void cliUart(cli_args_t *args);
 #endif
 
 
@@ -66,9 +68,7 @@ bool uartInit(void)
 
 
 	#ifdef _USE_HW_CLI
-
 		cliAdd("uart",cliUart);
-
 	#endif
 
   return true;
@@ -439,8 +439,8 @@ static void cliUart(cli_args_t *args)
   if(args->argc == 1 && args->isStr(0, "info") == true) //여기서 설정한 toggle 과 동일 문자가 입력하면 아래 Loop가 실행됨//
   {
 
-  	uartPrintf(_DEF_UART1, "Uart(485) BaudRate : %d\n", uartGetBaud(_DEF_UART2));
-  	uartPrintf(_DEF_UART1, "ID    : DEC: %d, HEX: %x\n", STATION_ID_HMI, STATION_ID_HMI);
+  	uartPrintf(_DEF_UART1, "Uart(485) BaudRate : %d\n", uartGetBaud(_DEF_UART1));
+  	//uartPrintf(_DEF_UART1, "ID    : DEC: %d, HEX: %x\n", STATION_ID_HMI, STATION_ID_HMI);
 
   	ret = true;
   }
@@ -450,7 +450,7 @@ static void cliUart(cli_args_t *args)
 
   	baudrate  = (uint32_t) args->getData(1);
 
-  	uartOpen(_DEF_UART2, baudrate);
+  	uartOpen(_DEF_UART1, baudrate);
 
   	ret = true;
   }
@@ -458,7 +458,7 @@ static void cliUart(cli_args_t *args)
   if(args->argc == 1 && args->isStr(0, "reset") == true) //여기서 설정한 toggle 과 동일 문자가 입력하면 아래 Loop가 실행됨//
   {
 
-    HAL_UART_Init(uart_tbl[1].p_huart);
+    HAL_UART_Init(uart_tbl[_DEF_UART1].p_huart);
   	uartPrintf(_DEF_UART1, "Uart(485) reset OK\n");
 
   	ret = true;

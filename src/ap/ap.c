@@ -7,20 +7,17 @@
 
 
 #include "ap.h"
-#include "led.h"
-#include "uart.h"
 
 
 
 void apInit(void)
 {
-	uartOpen(_DEF_UART1, 57600);
+	cliOpen(_DEF_UART1, 57600);
 }
 
 void apMain(void)
 {
   uint32_t pre_time;
-  uint8_t ces;
 
   pre_time = millis();
 
@@ -35,11 +32,9 @@ void apMain(void)
 
 		}
 
-    if (uartAvailable(_DEF_UART1) > 0)
-    {
-    	ces = uartRead(_DEF_UART1);
-      uartPrintf(_DEF_UART1, "rx : 0x%X\n", ces);
-    }
+#ifdef _USE_HW_CLI
+    cliMain();
+#endif
 
 	}
 

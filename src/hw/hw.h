@@ -11,6 +11,7 @@
 
 #include "hw_def.h"
 #include "led.h"
+#include "cli.h"
 
 
 void hwInit(void);
