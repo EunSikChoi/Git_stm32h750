@@ -29,7 +29,7 @@ void bspInit(void)
   SCB_EnableICache();
   SCB_EnableDCache();
 
-  // MPUConfig();
+   MPUConfig();
 
 #endif
 }

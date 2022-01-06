@@ -32,7 +32,7 @@ typedef struct
 
 } uart_tbl_t;
 
-#if 1
+#if 0
 uart_tbl_t uart_tbl[UART_MAX_CH];
 #else
 static __attribute__((section(".non_cache"))) uart_tbl_t uart_tbl[UART_MAX_CH];
