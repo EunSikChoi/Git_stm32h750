@@ -31,5 +31,8 @@
 #define      HW_BUTTON_CH           1
 
 
+#define _USE_HW_QSPI
+#define _USE_HW_FLASH
+
 
 #endif /* SRC_HW_HW_DEF_H_ */

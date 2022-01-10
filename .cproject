@@ -96,6 +96,8 @@
                                     <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/lib/cube_h750/Drivers/CMSIS/Device/ST/STM32H7xx/Include}&quot;"/>
                                     									
                                     <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/lib/cube_h750/Drivers/CMSIS/Include}&quot;"/>
+                                    									
+                                    <listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/common/hw/include/qspi}&quot;"/>
                                     								
                                 </option>
                                 								

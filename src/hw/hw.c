@@ -22,4 +22,10 @@ void hwInit(void)
 
 	buttonInit();
 
+
+  qspiInit();
+
+  qspiEnableMemoryMappedMode();
+
+
 }
