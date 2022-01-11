@@ -131,8 +131,8 @@ bool flashErase(uint32_t addr, uint32_t length)
       HAL_StatusTypeDef status;
 
 
-      EraseInit.Sector       = start_sector;
-      EraseInit.NbSectors    = (end_sector - start_sector) + 1;
+      EraseInit.Sector       = start_sector; // 섹터가 1뿐임 H750 // 0으로 고정
+      EraseInit.NbSectors    = (end_sector - start_sector) + 1; // 지워야할 섹터 넘버도 1로 고정 //
       EraseInit.TypeErase    = FLASH_TYPEERASE_SECTORS;
       EraseInit.VoltageRange = FLASH_VOLTAGE_RANGE_4;
       EraseInit.Banks        = flash_tbl[start_sector].bank;
@@ -173,12 +173,13 @@ bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
   HAL_FLASH_Unlock();
 
   index = 0;
-  offset = addr%32;
+  offset = addr%32; // 32바이트(256bit) 단위로 Write함 //
 
-  if (offset != 0 || length < 32)
+  // 처음부터 256bit 보다 작은 값 Write //
+  if (offset != 0 || length < 32)  // 8바이트 배열이라 8*32 = 256비트임
   {
     write_addr = addr - offset;
-    memcpy(&buf[0], (void *)write_addr, 32);
+    memcpy(&buf[0], (void *)write_addr, 32);  // 32바이트 공간 생성 //
     memcpy(&buf[offset], &p_data[0], constrain(32-offset, 0, length));
 
     status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, write_addr, (uint32_t)buf);
@@ -197,7 +198,7 @@ bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
     }
   }
 
-
+  // 32바이트 보다 큰 값 Write //
   while(index < length)
   {
     write_length = constrain(length - index, 0, 32);
@@ -210,13 +211,13 @@ bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
     }
 
     index += write_length;
-
-    if ((length - index) > 0 && (length - index) < 32)
+    // 쓰다가 마지막 남은 256bit 보다 작은값 쓰기 위함 //
+    if ((length - index) > 0 && (length - index) < 32) // 8바이트 배열이라 8*32 = 256비트임
     {
       offset = length - index;
       write_addr = addr + index;
       memcpy(&buf[0], (void *)write_addr, 32);
-      memcpy(&buf[0], &p_data[index], offset);
+      memcpy(&buf[0], &p_data[index], offset); // 남은 offset 크기만큼 데이터 써줌//
 
       status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, write_addr, (uint32_t)buf);
       if (status != HAL_OK)
@@ -245,6 +246,7 @@ bool flashRead(uint32_t addr, uint8_t *p_data, uint32_t length)
     return ret;
   }
 #endif
+
 
   for (int i=0; i<length; i++)
   {
@@ -281,11 +283,29 @@ void cliFlash(cli_args_t *args)
     else if(args->isStr(0, "test") == true)
     {
 
-    	ces =  *(uint8_t *)0x90000000;
-    	cliPrintf("read  : %d\n", ces);
+    	flash_ret = qspiEnableMemoryMappedMode();
 
-    	*(uint8_t *)0x90000000 = ces + 2 ;
-    	cliPrintf("write  : %d\n", *(uint8_t *)0x90000000 );
+    	if(flash_ret == true)
+    	{
+
+			#if 1
+    		// if use cache //
+    		SCB_InvalidateDCache_by_Addr(0x90000000, 1);
+
+				ces =  *(uint8_t *)0x90000000;
+				cliPrintf("read  : 0x%x\n", ces);
+			#else
+				ces =  *(uint8_t *)0x90000000;
+				cliPrintf("read  : 0x%x\n", ces);
+			#endif
+        // only read... write not support!!! //
+				//*(uint8_t *)0x90000000 = ces+2 ;
+				//cliPrintf("write  : 0x%x\n", *(uint8_t *)0x90000000);
+
+				qspiInit();
+
+    	}
+
 
     }
     else
@@ -297,8 +317,12 @@ void cliFlash(cli_args_t *args)
   {
     if(args->isStr(0, "read") == true)
     {
+
+
       addr   = (uint32_t)args->getData(1);
       length = (uint32_t)args->getData(2);
+
+
 
       for (i=0; i<length; i++)
       {
@@ -316,6 +340,7 @@ void cliFlash(cli_args_t *args)
     }
     else if(args->isStr(0, "erase") == true)
     {
+
       addr   = (uint32_t)args->getData(1);
       length = (uint32_t)args->getData(2);
 
@@ -355,6 +380,35 @@ void cliFlash(cli_args_t *args)
       ret = false;
     }
   }
+//  else if (args->argc == 4)
+//  {
+//     if(args->isStr(0, "write") == true)
+//    {
+//      addr = (uint32_t)args->getData(1);
+//      data = (uint8_t )args->getData(2);
+//      length = (uint32_t)args->getData(3);
+//
+//
+//      pre_time = millis();
+//      flash_ret = flashWrite(addr, &data, length);
+//
+//      cliPrintf( "addr : 0x%X\t 0x%02X %dms\n", addr, data, millis()-pre_time);
+//      if (flash_ret)
+//      {
+//        cliPrintf("OK\n");
+//      }
+//      else
+//      {
+//        cliPrintf("FAIL\n");
+//      }
+//    }
+//    else
+//    {
+//      ret = false;
+//    }
+//
+//
+//  }
   else
   {
     ret = false;
@@ -366,7 +420,7 @@ void cliFlash(cli_args_t *args)
     cliPrintf( "flash info\n");
     cliPrintf( "flash read  [addr] [length]\n");
     cliPrintf( "flash erase [addr] [length]\n");
-    cliPrintf( "flash write [addr] [data]\n");
+    cliPrintf( "flash write [addr] [data] \n");
   }
 
 }

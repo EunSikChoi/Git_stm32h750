@@ -157,6 +157,7 @@ void MPUConfig(void)
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
 
+#if 1
   /* Write-back, no write allocate */
   MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
   MPU_InitStruct.BaseAddress      = 0x90000000;
@@ -170,7 +171,21 @@ void MPUConfig(void)
   MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
   MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
+#else
+  /* Stringly Ordered */
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress      = 0x90000000;
+  MPU_InitStruct.Size             = MPU_REGION_SIZE_16MB;
+  MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;
+  MPU_InitStruct.IsCacheable      = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable     = MPU_ACCESS_NOT_BUFFERABLE;
+  MPU_InitStruct.IsShareable      = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.Enable           = MPU_REGION_ENABLE;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+#endif
 
   /* Enable the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
