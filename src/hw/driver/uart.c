@@ -184,7 +184,7 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 
     case _DEF_UART1:
 
-	#if 0 // case 1  // Tx polling
+	#if 1 // case 1  // Tx polling
     	status = HAL_UART_Transmit(uart_tbl[ch].p_huart, p_data, length, 100);
 
 		  if (status == HAL_OK)
@@ -218,7 +218,7 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 	break;
 #endif
 
-	#if 1 // case 4  //  wait Tx, DMA, make buffer
+	#if 0 // case 4  //  wait Tx, DMA, make buffer
 
   pre_time = millis();
 

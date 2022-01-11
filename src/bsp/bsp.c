@@ -9,6 +9,8 @@
 
 #include "bsp.h"
 
+void logPrintf(const char *fmt, ...);
+
 
 void SystemClock_Config(void);
 void MPUConfig(void);
@@ -94,7 +96,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_UART4;
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_UART4|RCC_PERIPHCLK_QSPI;
+  PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_D1HCLK;
   PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
@@ -102,9 +105,7 @@ void SystemClock_Config(void)
   }
 }
 
-/* USER CODE BEGIN 4 */
 
-/* USER CODE END 4 */
 
 /**
   * @brief  This function is executed in case of error occurrence.
@@ -112,7 +113,10 @@ void SystemClock_Config(void)
   */
 void Error_Handler(void)
 {
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
 
+  /* USER CODE END Error_Handler_Debug */
 }
 
 void MPUConfig(void)
@@ -134,22 +138,46 @@ void MPUConfig(void)
 
   /* Disables the MPU */
   HAL_MPU_Disable();
-  /** Initializes and configures the Region and the memory to be protected
-  */
-  MPU_InitStruct.Enable 						= MPU_REGION_ENABLE;
-  MPU_InitStruct.Number 						= MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress 				= 0x38000000;
-  MPU_InitStruct.Size 							= MPU_REGION_SIZE_64KB;
-  MPU_InitStruct.SubRegionDisable		= 0x0;
-  MPU_InitStruct.TypeExtField 			= MPU_TEX_LEVEL0;             // T
-  MPU_InitStruct.AccessPermission 	= MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.DisableExec 				= MPU_INSTRUCTION_ACCESS_ENABLE;
-  MPU_InitStruct.IsShareable 				= MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable 				= MPU_ACCESS_NOT_CACHEABLE;   // C
-  MPU_InitStruct.IsBufferable 			= MPU_ACCESS_NOT_BUFFERABLE;  // B
 
+
+  // MPU 설정 메모리 크기에 정렬된 주소가 입력되어야 함.
+
+  /* Stringly Ordered */
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER0;
+  MPU_InitStruct.BaseAddress      = 0x38000000;
+  MPU_InitStruct.Size             = MPU_REGION_SIZE_64KB;
+  MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;
+  MPU_InitStruct.IsCacheable      = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable     = MPU_ACCESS_NOT_BUFFERABLE;
+  MPU_InitStruct.IsShareable      = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.Enable           = MPU_REGION_ENABLE;
+  MPU_InitStruct.SubRegionDisable = 0x0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
-  /* Enables the MPU */
-  HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 
+
+  /* Write-back, no write allocate */
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress      = 0x90000000;
+  MPU_InitStruct.Size             = MPU_REGION_SIZE_16MB;
+  MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;
+  MPU_InitStruct.IsCacheable      = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable     = MPU_ACCESS_BUFFERABLE;
+  MPU_InitStruct.IsShareable      = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.Enable           = MPU_REGION_ENABLE;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+
+  /* Enable the MPU */
+  HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 }
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+

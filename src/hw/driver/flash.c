@@ -8,133 +8,243 @@
 
 
 #include "flash.h"
+#include "qspi.h"
 #include "cli.h"
 
-#define FLASH_SECTOR_MAX        4
-#define FLASH_SECTOR_OFFSET     4
+
+#define FLASH_MAX_SECTOR          1
+
 
 typedef struct
 {
+  int16_t  index;
+  uint32_t bank;
   uint32_t addr;
   uint32_t length;
-}flash_tbl_t;
+} flash_tbl_t;
 
-static flash_tbl_t flash_tbl[FLASH_SECTOR_MAX] =
-{
-//		{ 0x08000000, 16*1024},
-//		{ 0x08004000, 16*1024},
-//		{ 0x08008000, 16*1024},
-//		{ 0x0800C000, 16*1024},
-		{ 0x08010000, 64*1024},
-    { 0x08020000, 128*1024},
-    { 0x08044000, 128*1024},
-    { 0x08060000, 128*1024}
-};
 
-static flash_tbl_t flash_tbl[FLASH_SECTOR_MAX];
+const flash_tbl_t flash_tbl_bank1[FLASH_MAX_SECTOR] =
+    {
+        {0, FLASH_BANK_1, 0x08000000, 128*1024},
+    };
 
-static bool flashInSector(uint16_t sector_num ,uint32_t addr, uint32_t length);
+
+
 
 #ifdef _USE_HW_CLI
-  static void cliFlash(cli_args_t *args);
+static void cliFlash(cli_args_t *args);
 #endif
+
+
+
+
 
 bool flashInit(void)
 {
 
-	#ifdef _USE_HW_CLI
-  	cliAdd("flash", cliFlash);
-	#endif
 
+#ifdef _USE_HW_CLI
+  cliAdd("flash", cliFlash);
+#endif
   return true;
 }
-
 
 bool flashErase(uint32_t addr, uint32_t length)
 {
   bool ret = false;
-  HAL_StatusTypeDef status;
-  FLASH_EraseInitTypeDef init;
-  uint32_t page_error;
 
-  int16_t  start_sector_num = -1;
-  uint32_t sector_count = 0;
-  int16_t  ces = 0;
+  int32_t start_sector = -1;
+  int32_t end_sector = -1;
+  uint32_t banks;
+  const flash_tbl_t *flash_tbl;
 
 
-  for (int i=0; i<FLASH_SECTOR_MAX; i++)
+#ifdef _USE_HW_QSPI
+  if (addr >= qspiGetAddr() && addr < (qspiGetAddr() + qspiGetLength()))
   {
-    if (flashInSector(i, addr, length) == true) // 총 섹터크기만큼 루프 수행
+    ret = qspiErase(addr - qspiGetAddr(), length);
+    return ret;
+  }
+#endif
+
+
+  HAL_FLASH_Unlock();
+
+  for (banks = 0; banks < 1; banks++)
+  {
+    start_sector = -1;
+    end_sector = -1;
+
+    if (banks == 0)
     {
-      if (start_sector_num < 0) //flashInSector() 조건 만족시 1번만 진입. 시작 섹터 주소 저장 //
+      flash_tbl = flash_tbl_bank1;
+    }
+    else
+    {
+      return false;
+    }
+
+    for (int i=0; i<FLASH_MAX_SECTOR; i++)
+    {
+      bool update = false;
+      uint32_t start_addr;
+      uint32_t end_addr;
+
+
+      start_addr = flash_tbl[i].addr;
+      end_addr   = flash_tbl[i].addr + flash_tbl[i].length - 1;
+
+      if (start_addr >= addr && start_addr < (addr+length))
       {
-        start_sector_num = i +FLASH_SECTOR_OFFSET ;
-        //cliPrintf("sector NUM %d : \n", start_sector_num);
+        update = true;
       }
-      sector_count++; // flashInSector() 조건 만족시 매번 ++1 수행. 결국 지워야할 섹터 갯수 정보임  //
+      if (end_addr >= addr && end_addr < (addr+length))
+      {
+        update = true;
+      }
+
+      if (addr >= start_addr && addr <= end_addr)
+      {
+        update = true;
+      }
+      if ((addr+length-1) >= start_addr && (addr+length-1) <= end_addr)
+      {
+        update = true;
+      }
+
+
+      if (update == true)
+      {
+        if (start_sector < 0)
+        {
+          start_sector = i;
+        }
+        end_sector = i;
+      }
     }
-  }
 
-  ces = sector_count;
-
-  if (sector_count > 0)
-  {
-    HAL_FLASH_Unlock();
-
-    init.TypeErase   	= FLASH_TYPEERASE_SECTORS;
-    init.Banks       	= FLASH_BANK_1;
-    init.Sector		 		= start_sector_num;//start_sector_num ;		  // 기존은 주소였는데 Sector로 변경
-    init.NbSectors    = sector_count;
-    init.VoltageRange	= FLASH_VOLTAGE_RANGE_3;  // 전원 범위 선택
-
-    status = HAL_FLASHEx_Erase(&init, &page_error);
-    if (status == HAL_OK)
+    if (start_sector >= 0)
     {
-      ret = true;
-    }
+      FLASH_EraseInitTypeDef EraseInit;
+      uint32_t SectorError;
+      HAL_StatusTypeDef status;
 
-    HAL_FLASH_Lock();
+
+      EraseInit.Sector       = start_sector;
+      EraseInit.NbSectors    = (end_sector - start_sector) + 1;
+      EraseInit.TypeErase    = FLASH_TYPEERASE_SECTORS;
+      EraseInit.VoltageRange = FLASH_VOLTAGE_RANGE_4;
+      EraseInit.Banks        = flash_tbl[start_sector].bank;
+
+      status = HAL_FLASHEx_Erase(&EraseInit, &SectorError);
+      if (status == HAL_OK)
+      {
+        ret = true;
+      }
+    }
   }
+
+  HAL_FLASH_Lock();
 
   return ret;
 }
 
-
 bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
 {
-   bool ret = true;
+  bool ret = true;
+  uint32_t index;
+  uint32_t write_length;
+  uint32_t write_addr;
+  uint8_t buf[32];
+  uint32_t offset;
+  HAL_StatusTypeDef status;
 
-   HAL_StatusTypeDef status;
 
-   HAL_FLASH_Unlock();
+#ifdef _USE_HW_QSPI
+  if (addr >= qspiGetAddr() && addr < (qspiGetAddr() + qspiGetLength()))
+  {
+    ret = qspiWrite(addr - qspiGetAddr(), p_data, length);
+    return ret;
+  }
+#endif
 
-   for(int i = 0 ; i < length ; i++ )
-   {
-     uint32_t  data;
-     data  = p_data[i + 0] << 0 ;
 
-      status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, addr+i, (uint64_t) data);
+  HAL_FLASH_Unlock();
 
-      if(status != HAL_OK)
+  index = 0;
+  offset = addr%32;
+
+  if (offset != 0 || length < 32)
+  {
+    write_addr = addr - offset;
+    memcpy(&buf[0], (void *)write_addr, 32);
+    memcpy(&buf[offset], &p_data[0], constrain(32-offset, 0, length));
+
+    status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, write_addr, (uint32_t)buf);
+    if (status != HAL_OK)
+    {
+      return false;
+    }
+
+    if (offset == 0 && length < 32)
+    {
+      index += length;
+    }
+    else
+    {
+      index += (32 - offset);
+    }
+  }
+
+
+  while(index < length)
+  {
+    write_length = constrain(length - index, 0, 32);
+
+    status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, addr + index, (uint32_t)&p_data[index]);
+    if (status != HAL_OK)
+    {
+      ret = false;
+      break;
+    }
+
+    index += write_length;
+
+    if ((length - index) > 0 && (length - index) < 32)
+    {
+      offset = length - index;
+      write_addr = addr + index;
+      memcpy(&buf[0], (void *)write_addr, 32);
+      memcpy(&buf[0], &p_data[index], offset);
+
+      status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, write_addr, (uint32_t)buf);
+      if (status != HAL_OK)
       {
-        ret = false;
-        break;
-
+        return false;
       }
-   }
+      break;
+    }
+  }
 
-   HAL_FLASH_Lock();
+  HAL_FLASH_Lock();
 
-   return ret;
-
+  return ret;
 }
-
 
 bool flashRead(uint32_t addr, uint8_t *p_data, uint32_t length)
 {
   bool ret = true;
   uint8_t *p_byte = (uint8_t *)addr;
 
+
+#ifdef _USE_HW_QSPI
+  if (addr >= qspiGetAddr() && addr < (qspiGetAddr() + qspiGetLength()))
+  {
+    ret = qspiRead(addr - qspiGetAddr(), p_data, length);
+    return ret;
+  }
+#endif
 
   for (int i=0; i<length; i++)
   {
@@ -144,169 +254,120 @@ bool flashRead(uint32_t addr, uint8_t *p_data, uint32_t length)
   return ret;
 }
 
-bool flashInSector(uint16_t sector_num ,uint32_t addr, uint32_t length)
-{
-  bool ret = false;
-
-  uint32_t sector_start;
-  uint32_t sector_end;
-  uint32_t flash_start;
-  uint32_t flash_end;
 
 
-  sector_start = flash_tbl[sector_num].addr; // load addr // save at flashinit //
-  sector_end   = flash_tbl[sector_num].addr + flash_tbl[sector_num].length - 1;
-  flash_start  = addr;              // 지우고자 하는 시작주소
-  flash_end    = addr + length - 1; // 지우고자 하는 메모리 크기
 
-
-  if (sector_start >= flash_start && sector_start <= flash_end)
-  {
-    ret = true;
-    //cliPrintf("sector_start 01x%d : \n", ret);
-
-  }
-
-  if (sector_end >= flash_start && sector_end <= flash_end)
-  {
-    ret = true;
-    //cliPrintf("sector_start 02x%d : \n", ret);
-  }
-
-  if (flash_start >= sector_start && flash_start <= sector_end)
-  {
-    ret = true;
-    //cliPrintf("sector_start 03x%d : \n", ret);
-  }
-
-  if (flash_end >= sector_start && flash_end <= sector_end)
-  {
-    ret = true;
-    //cliPrintf("sector_start 04x%d : \n", ret);
-  }
-
-
-  return ret;
-}
 
 #ifdef _USE_HW_CLI
 void cliFlash(cli_args_t *args)
 {
+  bool ret = true;
+  uint32_t i;
+  uint32_t addr;
+  uint32_t length;
+  uint8_t  data;
+  uint8_t ces;
+  uint32_t pre_time;
+  bool flash_ret;
 
-	bool ret = false;
 
-    if(args->argc == 1 && args->isStr(0, "info") == true) //여기서 설정한 toggle 과 동일 문자가 입력하면 아래 Loop가 실행됨//
-		{
-				for( int i = 0 ; i < FLASH_SECTOR_MAX ; i++)
-				{
-					cliPrintf("0x%X : %d KB\n", flash_tbl[i].addr ,flash_tbl[i].length);
-				}
-
-				ret = true;
-		}
-
-    if(args->argc == 3 && args->isStr(0, "read") == true) //여기서 설정한 toggle 과 동일 문자가 입력하면 아래 Loop가 실행됨//
-		{
-
-				uint32_t addr;
-				uint32_t length;
-
-				addr   = (uint32_t)args->getData(1);
-				length = (uint32_t)args->getData(2);
-
-				if ((addr >= 0x08080001) || (addr < 0x08010000))
-				{
-
-					cliPrintf("<< flash addr ERR >> \n");
-					ret = false;
-
-				}
-				else
-				{
-
-					 for (int i =0; i < length ; i++)
-					 {
-						 cliPrintf("0x%X : 0x%X \n", addr+i ,  *((uint8_t *)addr+i));
-					 }
-
-					 ret = true;
-
-					 if( ret == true)
-					 {
-						 cliPrintf("flash read OK\n");
-					 }
-				}
-		}
-
-    if(args->argc == 3 && args->isStr(0, "erase") == true) //여기서 설정한 toggle 과 동일 문자가 입력하면 아래 Loop가 실행됨//
-		{
-					uint32_t addr;
-					uint32_t length;
-
-					addr   = (uint32_t) args->getData(1);
-					length = (uint32_t) args->getData(2);
-
-					if ((addr >= 0x08080001) || (addr < 0x08000000))
-					{
-
-						cliPrintf("<< flash addr ERR >> \n");
-						ret = false;
-
-					}
-					else
-					{
-							 ret = flashErase(addr, length);
-
-							if( ret == true)
-							{
-								cliPrintf("flash erase OK\n");
-							}
-					}
-
-		}
-
-    if((args->argc == 4 && args->isStr(0, "write") && args->getData(3) <= 4) == true) //여기서 설정한 toggle 과 동일 문자가 입력하면 아래 Loop가 실행됨//
+  if (args->argc == 1)
+  {
+    if(args->isStr(0, "info") == true)
+    {
+      cliPrintf("flash addr  : 0x%X\n", 0x08000000);
+      cliPrintf("qspi  addr  : 0x%X\n", 0x90000000);
+    }
+    else if(args->isStr(0, "test") == true)
     {
 
-        uint32_t addr;
-        uint32_t data;
-        uint32_t length;  //4바이트면 32비트 데이터 오버됨//
+    	ces =  *(uint8_t *)0x90000000;
+    	cliPrintf("read  : %d\n", ces);
 
+    	*(uint8_t *)0x90000000 = ces + 2 ;
+    	cliPrintf("write  : %d\n", *(uint8_t *)0x90000000 );
 
-        addr    = (uint32_t) args->getData(1);
-        data    = (uint32_t) args->getData(2);
-        length  = (uint32_t) args->getData(3);
+    }
+    else
+    {
+      ret = false;
+    }
+  }
+  else if (args->argc == 3)
+  {
+    if(args->isStr(0, "read") == true)
+    {
+      addr   = (uint32_t)args->getData(1);
+      length = (uint32_t)args->getData(2);
 
+      for (i=0; i<length; i++)
+      {
+        flash_ret = flashRead(addr+i, &data, 1);
 
-        if ((addr >= 0x08080001) || (addr < 0x08000000))
+        if (flash_ret == true)
         {
-             cliPrintf("<< flash addr ERR >> \n");
-             ret = false;
+          cliPrintf( "addr : 0x%X\t 0x%02X\n", addr+i, data);
         }
         else
         {
-            if( flashWrite(addr, (uint8_t *)&data, length) == true )
-            {
-              cliPrintf("flash write OK\n");
-              ret = true;
-            }
-            else
-            {
-              cliPrintf("flash write fail\n");
-            }
+          cliPrintf( "addr : 0x%X\t Fail\n", addr+i);
         }
-
+      }
     }
+    else if(args->isStr(0, "erase") == true)
+    {
+      addr   = (uint32_t)args->getData(1);
+      length = (uint32_t)args->getData(2);
 
-		if(ret != true)
-		{
-			cliPrintf("flash info\n");
-			cliPrintf("flash read  addr length\n");
-			cliPrintf("flash erase addr length\n");
-			cliPrintf("flash write addr data length<=4\n");
+      pre_time = millis();
+      flash_ret = flashErase(addr, length);
 
-		}
+      cliPrintf( "addr : 0x%X\t len : %d %d ms\n", addr, length, (millis()-pre_time));
+      if (flash_ret)
+      {
+        cliPrintf("OK\n");
+      }
+      else
+      {
+        cliPrintf("FAIL\n");
+      }
+    }
+    else if(args->isStr(0, "write") == true)
+    {
+      addr = (uint32_t)args->getData(1);
+      data = (uint8_t )args->getData(2);
+
+      pre_time = millis();
+      flash_ret = flashWrite(addr, &data, 1);
+
+      cliPrintf( "addr : 0x%X\t 0x%02X %dms\n", addr, data, millis()-pre_time);
+      if (flash_ret)
+      {
+        cliPrintf("OK\n");
+      }
+      else
+      {
+        cliPrintf("FAIL\n");
+      }
+    }
+    else
+    {
+      ret = false;
+    }
+  }
+  else
+  {
+    ret = false;
+  }
+
+
+  if (ret == false)
+  {
+    cliPrintf( "flash info\n");
+    cliPrintf( "flash read  [addr] [length]\n");
+    cliPrintf( "flash erase [addr] [length]\n");
+    cliPrintf( "flash write [addr] [data]\n");
+  }
 
 }
-
 #endif

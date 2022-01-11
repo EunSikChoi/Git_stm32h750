@@ -19,13 +19,19 @@ void hwInit(void)
 	ledInit();
 
 	uartInit();
+  uartOpen(_DEF_UART1, 57600);
+
+	logInit();
+	logPrintf("\n\n");
+	logPrintf("[ FW Begin... ]\r\n");
+
 
 	buttonInit();
 
-
   qspiInit();
+  flashInit();
 
-  qspiEnableMemoryMappedMode();
+ // qspiEnableMemoryMappedMode();
 
 
 }

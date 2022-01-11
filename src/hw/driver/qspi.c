@@ -9,7 +9,7 @@
 
 #include "qspi.h"
 #include "w25q128fv.h"
-#include "uart.h"
+#include "log.h"
 
 
 
@@ -76,20 +76,21 @@ bool qspiInit(void)
 
   if (BSP_QSPI_GetID(&info) == QSPI_OK)
   {
+
     if (info.device_id[0] == 0xEF && info.device_id[1] == 0x40 && info.device_id[2] == 0x17)
     {
-      uartPrintf(_DEF_UART1 , "W25Q128JV         \t: OK\r\n");
+    	logPrintf( "W25Q128FV(SPI Mode)    \t: OK\r\n");
       ret = true;
     }
     else
     {
-    	uartPrintf(_DEF_UART1 ,  "W25Q128JV         \t: Fail %X %X %X\r\n", info.device_id[0], info.device_id[1], info.device_id[2]);
+    	logPrintf("W25Q128FV   \t : Fail %X %X %X\r\n", info.device_id[0], info.device_id[1], info.device_id[2]);
       ret = false;
     }
   }
   else
   {
-  	uartPrintf(_DEF_UART1 , "QSPI                \t: Fail\r\n");
+  	logPrintf("QSPI                \t : Fail\r\n");
     ret = false;
   }
 
@@ -182,7 +183,7 @@ bool qspiEraseBlock(uint32_t block_addr)
 
 bool qspiErase(uint32_t addr, uint32_t length)
 {
-  bool ret = true;
+  bool ret;
   uint32_t flash_length;
   uint32_t block_size;
   uint32_t block_begin;

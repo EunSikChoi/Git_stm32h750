@@ -34,5 +34,8 @@
 #define _USE_HW_QSPI
 #define _USE_HW_FLASH
 
+#define _USE_HW_LOG
+#define      HW_LOG_CH              _DEF_UART1
+
 
 #endif /* SRC_HW_HW_DEF_H_ */
