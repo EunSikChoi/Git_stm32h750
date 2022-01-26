@@ -24,9 +24,12 @@ void hwInit(void)
 	logInit();
 	logPrintf("\n\n");
 	logPrintf("[ FW Begin... ]\r\n");
+	logPrintf("Booting..Clock\t\t: %d Mhz\r\n", (int)HAL_RCC_GetSysClockFreq()/1000000);
 
 
 	buttonInit();
+
+  sdramInit();
 
   qspiInit();
   flashInit();

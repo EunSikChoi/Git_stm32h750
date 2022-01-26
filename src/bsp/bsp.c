@@ -96,7 +96,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_UART4|RCC_PERIPHCLK_QSPI;
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_UART4|RCC_PERIPHCLK_QSPI
+                              |RCC_PERIPHCLK_FMC;
+  PeriphClkInitStruct.FmcClockSelection = RCC_FMCCLKSOURCE_D1HCLK;
   PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_D1HCLK;
   PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
@@ -104,6 +106,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 }
+
 
 
 
@@ -156,10 +159,39 @@ void MPUConfig(void)
   MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
+#if 0
+  /* Write-back, no write allocate */
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress      = 0xC0000000;
+  MPU_InitStruct.Size             = MPU_REGION_SIZE_32MB;
+  MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;          //T
+  MPU_InitStruct.IsCacheable      = MPU_ACCESS_CACHEABLE;    //C
+  MPU_InitStruct.IsBufferable     = MPU_ACCESS_BUFFERABLE;   //B
+  MPU_InitStruct.IsShareable      = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.Enable           = MPU_REGION_ENABLE;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+#else
+  /* Strongly Ordered */
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress      = 0xC0000000;
+  MPU_InitStruct.Size             = MPU_REGION_SIZE_32MB;
+  MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;          		 //T
+  MPU_InitStruct.IsCacheable      = MPU_ACCESS_NOT_CACHEABLE;    //C
+  MPU_InitStruct.IsBufferable     = MPU_ACCESS_NOT_BUFFERABLE;   //B
+  MPU_InitStruct.IsShareable      = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.Enable           = MPU_REGION_ENABLE;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+#endif
 
 #if 1
   /* Write-back, no write allocate */
-  MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER3;
   MPU_InitStruct.BaseAddress      = 0x90000000;
   MPU_InitStruct.Size             = MPU_REGION_SIZE_16MB;
   MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;
@@ -173,7 +205,7 @@ void MPUConfig(void)
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 #else
   /* Stringly Ordered */
-  MPU_InitStruct.Number           = MPU_REGION_NUMBER1;
+  MPU_InitStruct.Number           = MPU_REGION_NUMBER3;
   MPU_InitStruct.BaseAddress      = 0x90000000;
   MPU_InitStruct.Size             = MPU_REGION_SIZE_16MB;
   MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;

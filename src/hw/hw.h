@@ -19,6 +19,7 @@
 #include "qspi.h"
 #include "flash.h"
 #include "log.h"
+#include "sdram.h"
 
 
 
