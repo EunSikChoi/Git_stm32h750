@@ -43,7 +43,7 @@ bool gpioInit(void)
 {
 	bool ret = true;
 
-	  __HAL_RCC_GPIOB_CLK_ENABLE();
+	  __HAL_RCC_GPIOD_CLK_ENABLE();
 
 	for (int i = 0 ; i < GPIO_MAX_CH ; i++)
 	{

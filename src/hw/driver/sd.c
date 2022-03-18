@@ -12,7 +12,7 @@
 #include "gpio.h"
 #include "cli.h"
 
-SD_HandleTypeDef hsd1;
+
 
 #ifdef _USE_HW_SD
 
@@ -28,11 +28,11 @@ static uint8_t is_try = 0;
 static sd_state_t sd_state = SDCARD_IDLE;
 
 
-SD_HandleTypeDef hsd;
-DMA_HandleTypeDef hdma_sdio_rx;
-DMA_HandleTypeDef hdma_sdio_tx;
+SD_HandleTypeDef hsd1;
+//DMA_HandleTypeDef hdma_sdio_rx;
+//DMA_HandleTypeDef hdma_sdio_tx;
 
-
+#define hsd hsd1
 
 #ifdef _USE_HW_CLI
 static void cliSd(cli_args_t *args);
@@ -44,26 +44,36 @@ bool sdInit(void)
   bool ret = false;
 
    // From Sdio.c //
-  hsd.Instance                 = SDIO;
-  hsd.Init.ClockEdge           = SDIO_CLOCK_EDGE_RISING;
-  hsd.Init.ClockBypass         = SDIO_CLOCK_BYPASS_DISABLE;
-  hsd.Init.ClockPowerSave      = SDIO_CLOCK_POWER_SAVE_DISABLE;
-  hsd.Init.BusWide             = SDIO_BUS_WIDE_1B;
-  hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv            = 0;
+  hsd.Instance                 = SDMMC1;
+  hsd.Init.ClockEdge           = SDMMC_CLOCK_EDGE_RISING;
+  hsd.Init.ClockPowerSave      = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+  hsd.Init.BusWide             = SDMMC_BUS_WIDE_4B;
+  hsd.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd.Init.ClockDiv            = SDMMC_NSpeed_CLK_DIV;
+  hsd.Init.TranceiverPresent 	 = SDMMC_TRANSCEIVER_NOT_PRESENT;
+
 
   is_detected = sdIsDetected();
 
   if (is_detected == true) // sd가 검출 될 때만 초기화//
   {
+
+  	 cliPrintf("sdCard     \t\t: connected\r\n");
+
+  	 HAL_SD_DeInit(&hsd);
+
     if (HAL_SD_Init(&hsd) == HAL_OK)
     {
-      if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) == HAL_OK)  //기존 1BYTE Write에서 4BYTE Write로 초기화//
-      {
+
         ret = true;
-      }
+        cliPrintf("sdCardInit  \t\t: OK\r\n");
+
     }
   }
+  else
+	{
+  	cliPrintf("sdCard     \t\t: not connected\r\n");
+	}
 
   is_init = ret;
 
@@ -82,10 +92,7 @@ bool sdReInit(void)
   HAL_SD_DeInit(&hsd);  // 초기화 해체
   if (HAL_SD_Init(&hsd) == HAL_OK)  // SD 초기화
   {
-    if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) == HAL_OK)
-    {
       ret = true;
-    }
   }
 
   is_init = ret;
@@ -104,6 +111,10 @@ bool sdDeInit(void)
     {
       ret = true;
     }
+
+    HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
+    __HAL_RCC_SDMMC1_CLK_DISABLE();
+
   }
 
   return ret;
@@ -263,12 +274,18 @@ bool sdIsReady(uint32_t timeout) // Busy 반대 // 동작 가능 //
 bool sdReadBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, uint32_t timeout_ms)
 {
   bool ret = false;
-  uint32_t pre_time;
+  //uint32_t pre_time;
 
 
-  if (is_init == false) return false;
+#if 1
 
+  if(HAL_SD_ReadBlocks(&hsd, (uint8_t *)p_data, block_addr, num_of_blocks, timeout_ms) == HAL_OK)
+   {
+     while(sdIsBusy() == true);
+     ret = true;
+   }
 
+#else
   is_rx_done = false; // read 하기 전에 초기화 //
 
   if(HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)p_data, block_addr, num_of_blocks) == HAL_OK) // READ DMA 명령어 //
@@ -292,6 +309,7 @@ bool sdReadBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, 
     }
     ret = is_rx_done;  // 위 두 조건을 줘서 충분히 수신 및 동작 가능한 상태까지 대기 //
   }
+#endif
 
   return ret; // 정상 수신시 "1" 리턴
 }
@@ -299,11 +317,16 @@ bool sdReadBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, 
 bool sdWriteBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, uint32_t timeout_ms)
 {
   bool ret = false;
-  uint32_t pre_time;
+  //uint32_t pre_time;
 
   if (is_init == false) return false;
 
-
+#if 1
+  if(HAL_SD_WriteBlocks(&hsd, (uint8_t *)p_data, block_addr, num_of_blocks, timeout_ms) == HAL_OK)
+   {
+     ret = true;
+   }
+#else
   is_tx_done = false;
   if(HAL_SD_WriteBlocks_DMA(&hsd, (uint8_t *)p_data, block_addr, num_of_blocks) == HAL_OK)
   {
@@ -326,6 +349,7 @@ bool sdWriteBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks,
     }
     ret = is_tx_done;
   }
+#endif
 
   return ret;
 }
@@ -363,135 +387,77 @@ void HAL_SD_MspInit(SD_HandleTypeDef* sdHandle)
 {
 
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(sdHandle->Instance==SDIO)
+  if(sdHandle->Instance==SDMMC1)
   {
-  /* USER CODE BEGIN SDIO_MspInit 0 */
+  /* USER CODE BEGIN SDMMC1_MspInit 0 */
 
-  /* USER CODE END SDIO_MspInit 0 */
-    /* SDIO clock enable */
-    __HAL_RCC_SDIO_CLK_ENABLE();
+  /* USER CODE END SDMMC1_MspInit 0 */
+    /* SDMMC1 clock enable */
+    __HAL_RCC_SDMMC1_CLK_ENABLE();
 
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-
-    __HAL_RCC_DMA2_CLK_ENABLE();  // 클럭 뒤에서  활성화 하면 동작은 안함!! //
-
-
-    /**SDIO GPIO Configuration
-    PA6     ------> SDIO_CMD
-    PB15     ------> SDIO_CK
-    PA8     ------> SDIO_D1
-    PA9     ------> SDIO_D2
-    PB5     ------> SDIO_D3
-    PB7     ------> SDIO_D0
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    /**SDMMC1 GPIO Configuration
+    PC10     ------> SDMMC1_D2
+    PC11     ------> SDMMC1_D3
+    PC12     ------> SDMMC1_CK
+    PD2     ------> SDMMC1_CMD
+    PC8     ------> SDMMC1_D0
+    PC9     ------> SDMMC1_D1
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_8|GPIO_PIN_9;
+    GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_8
+                          |GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO1;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_15|GPIO_PIN_5|GPIO_PIN_7;
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO1;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-    /* SDIO DMA Init */
-    /* SDIO_RX Init */
-    hdma_sdio_rx.Instance = DMA2_Stream3;
-    hdma_sdio_rx.Init.Channel = DMA_CHANNEL_4;
-    hdma_sdio_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_sdio_rx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_sdio_rx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_sdio_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    hdma_sdio_rx.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-    hdma_sdio_rx.Init.Mode = DMA_PFCTRL;
-    hdma_sdio_rx.Init.Priority = DMA_PRIORITY_LOW;
-    hdma_sdio_rx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-    hdma_sdio_rx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-    hdma_sdio_rx.Init.MemBurst = DMA_MBURST_INC4;
-    hdma_sdio_rx.Init.PeriphBurst = DMA_PBURST_INC4;
-    if (HAL_DMA_Init(&hdma_sdio_rx) != HAL_OK)
-    {
-      Error_Handler();
-    }
+    /* SDMMC1 interrupt Init */
+    HAL_NVIC_SetPriority(SDMMC1_IRQn, 6, 0);
+    HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
+  /* USER CODE BEGIN SDMMC1_MspInit 1 */
 
-    __HAL_LINKDMA(sdHandle,hdmarx,hdma_sdio_rx);
-
-    /* SDIO_TX Init */
-    hdma_sdio_tx.Instance = DMA2_Stream6;
-    hdma_sdio_tx.Init.Channel = DMA_CHANNEL_4;
-    hdma_sdio_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    hdma_sdio_tx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_sdio_tx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_sdio_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    hdma_sdio_tx.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-    hdma_sdio_tx.Init.Mode = DMA_PFCTRL;
-    hdma_sdio_tx.Init.Priority = DMA_PRIORITY_LOW;
-    hdma_sdio_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-    hdma_sdio_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-    hdma_sdio_tx.Init.MemBurst = DMA_MBURST_INC4;
-    hdma_sdio_tx.Init.PeriphBurst = DMA_PBURST_INC4;
-    if (HAL_DMA_Init(&hdma_sdio_tx) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(sdHandle,hdmatx,hdma_sdio_tx);
-
-    /* SDIO interrupt Init */
-    HAL_NVIC_SetPriority(SDIO_IRQn, 5, 0);
-    HAL_NVIC_EnableIRQ(SDIO_IRQn);
-  /* USER CODE BEGIN SDIO_MspInit 1 */
-    /* DMA controller clock enable */
-   // __HAL_RCC_DMA2_CLK_ENABLE();  // 앞에서 선언 //
-
-    /* DMA interrupt init */
-    /* DMA2_Stream3_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 5, 0);
-    HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
-    /* DMA2_Stream6_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 5, 0);
-    HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
-  /* USER CODE END SDIO_MspInit 1 */
+  /* USER CODE END SDMMC1_MspInit 1 */
   }
 }
 
 void HAL_SD_MspDeInit(SD_HandleTypeDef* sdHandle)
 {
 
-  if(sdHandle->Instance==SDIO)
+  if(sdHandle->Instance==SDMMC1)
   {
-  /* USER CODE BEGIN SDIO_MspDeInit 0 */
+  /* USER CODE BEGIN SDMMC1_MspDeInit 0 */
 
-  /* USER CODE END SDIO_MspDeInit 0 */
+  /* USER CODE END SDMMC1_MspDeInit 0 */
     /* Peripheral clock disable */
-    __HAL_RCC_SDIO_CLK_DISABLE();
+    __HAL_RCC_SDMMC1_CLK_DISABLE();
 
-    /**SDIO GPIO Configuration
-    PA6     ------> SDIO_CMD
-    PB15     ------> SDIO_CK
-    PA8     ------> SDIO_D1
-    PA9     ------> SDIO_D2
-    PB5     ------> SDIO_D3
-    PB7     ------> SDIO_D0
+    /**SDMMC1 GPIO Configuration
+    PC10     ------> SDMMC1_D2
+    PC11     ------> SDMMC1_D3
+    PC12     ------> SDMMC1_CK
+    PD2     ------> SDMMC1_CMD
+    PC8     ------> SDMMC1_D0
+    PC9     ------> SDMMC1_D1
     */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_6|GPIO_PIN_8|GPIO_PIN_9);
+    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_8
+                          |GPIO_PIN_9);
 
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_15|GPIO_PIN_5|GPIO_PIN_7);
+    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_2);
 
-    /* SDIO DMA DeInit */
-    HAL_DMA_DeInit(sdHandle->hdmarx);
-    HAL_DMA_DeInit(sdHandle->hdmatx);
+    /* SDMMC1 interrupt Deinit */
+    HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
+  /* USER CODE BEGIN SDMMC1_MspDeInit 1 */
 
-    /* SDIO interrupt Deinit */
-    HAL_NVIC_DisableIRQ(SDIO_IRQn);
-  /* USER CODE BEGIN SDIO_MspDeInit 1 */
-
-  /* USER CODE END SDIO_MspDeInit 1 */
+  /* USER CODE END SDMMC1_MspDeInit 1 */
   }
 }
 
