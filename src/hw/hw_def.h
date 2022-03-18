@@ -33,6 +33,7 @@
 
 #define _USE_HW_QSPI
 #define _USE_HW_FLASH
+//#define _USE_HW_SD
 
 #define _USE_HW_LOG
 #define      HW_LOG_CH              _DEF_UART1
@@ -40,6 +41,11 @@
 #define _USE_HW_SDRAM
 #define      HW_SDRAM_MEM_ADDR      0xC0000000
 #define      HW_SDRAM_MEM_SIZE      (32*1024*1024)
+
+#define _USE_HW_GPIO
+#define      HW_GPIO_MAX_CH  				1
+
+
 
 
 #endif /* SRC_HW_HW_DEF_H_ */

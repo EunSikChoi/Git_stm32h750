@@ -20,7 +20,8 @@
 #include "flash.h"
 #include "log.h"
 #include "sdram.h"
-
+#include "gpio.h"
+#include "sd.h"
 
 
 
