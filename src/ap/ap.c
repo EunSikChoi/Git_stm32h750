@@ -34,6 +34,7 @@ void apMain(void)
   args.x_time = 0;
   args.pre_time = millis();
 
+
 	while(1)
 	{
 		if(millis()-pre_time >= 1000) //
@@ -48,11 +49,10 @@ void apMain(void)
 #ifdef _USE_HW_CLI
     cliMain();
 #endif
-
     sdMain(&args);
 
-	}
 
+	}
 
 }
 
@@ -71,4 +71,6 @@ void sdMain(args_t *p_args)
     cliPrintf("\nSDCARD_DISCONNECTED\n");
   }
 }
+
+
 

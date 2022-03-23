@@ -47,6 +47,8 @@
 
 #define _PIN_GPIO_SDCARD_DETECT     0 // ch 0 : SD DC
 
+#define _USE_HW_FATFS
+
 
 
 
