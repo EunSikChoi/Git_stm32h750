@@ -13,6 +13,13 @@
 #include "def.h"
 #include "stm32h7xx_hal.h"
 
+#if _USE_LOG_PRINT
+#define logPrintf(fmt, ...)     printf(fmt, ##__VA_ARGS__)
+#else
+#define logPrintf(fmt, ...)
+#endif
+
+
 void bspInit(void);
 void delay(uint32_t ms);
 uint32_t millis(void);

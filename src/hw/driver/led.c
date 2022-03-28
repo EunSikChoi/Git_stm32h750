@@ -42,6 +42,18 @@ bool ledInit(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOI_CLK_ENABLE();
 
+
+  led_tbl[0].port 			= LED_RED_GPIO_Port;
+  led_tbl[0].pin				= LED_RED_Pin;
+  led_tbl[0].on_state 	= GPIO_PIN_RESET;
+  led_tbl[0].off_state 	= GPIO_PIN_SET;
+
+  led_tbl[1].port 			= LED_BLUE_GPIO_Port;
+  led_tbl[1].pin				= LED_BLUE_Pin;
+  led_tbl[1].on_state 	= GPIO_PIN_RESET;
+  led_tbl[1].off_state 	= GPIO_PIN_SET;
+
+
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -51,7 +63,7 @@ bool ledInit(void)
   	GPIO_InitStruct.Pin =led_tbl[i].pin;
   	HAL_GPIO_Init(led_tbl[i].port, &GPIO_InitStruct);
 
-  	ledOff(i);
+  	ledOn(i);
   }
 #ifdef _USE_HW_CLI
   cliAdd("led", cliled);
@@ -75,7 +87,7 @@ void ledToggle(uint8_t ch)
 	HAL_GPIO_TogglePin(led_tbl[ch].port, led_tbl[ch].pin);
 }
 
-
+#ifdef _USE_HW_CLI
 void cliled(cli_args_t *args)
 {
   bool ret = false;
@@ -114,5 +126,5 @@ void cliled(cli_args_t *args)
     cliPrintf("led toggle ch[1~%d] time_ms\n", LED_MAX_CH);
   }
 }
-
+#endif
 

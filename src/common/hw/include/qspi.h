@@ -38,7 +38,8 @@ bool qspiReset(void);
 bool qspiRead(uint32_t addr, uint8_t *p_data, uint32_t length);
 bool qspiWrite(uint32_t addr, uint8_t *p_data, uint32_t length);
 bool qspiErase(uint32_t addr, uint32_t length);
-bool qspiEraseBlock(uint32_t block_addr);
+bool qspiEraseBlock(uint32_t block_addr);  // 4K 단위   // sector는 64K 단위 //
+bool qspiEraseSector(uint32_t sector_addr);
 bool qspiEraseChip(void);
 bool qspiGetStatus(void);
 bool qspiGetInfo(qspi_info_t* p_info);

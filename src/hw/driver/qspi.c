@@ -48,6 +48,7 @@ uint8_t BSP_QSPI_DeInit     (void);
 uint8_t BSP_QSPI_Read       (uint8_t* pData, uint32_t ReadAddr, uint32_t Size);
 uint8_t BSP_QSPI_Write      (uint8_t* pData, uint32_t WriteAddr, uint32_t Size);
 uint8_t BSP_QSPI_Erase_Block(uint32_t BlockAddress);
+uint8_t BSP_QSPI_Erase_Sector(uint32_t sector_addr);
 uint8_t BSP_QSPI_Erase_Chip (void);
 uint8_t BSP_QSPI_GetStatus  (void);
 uint8_t BSP_QSPI_GetInfo    (QSPI_Info* pInfo);
@@ -170,6 +171,22 @@ bool qspiEraseBlock(uint32_t block_addr)
   uint8_t ret;
 
   ret = BSP_QSPI_Erase_Block(block_addr);
+
+  if (ret == QSPI_OK)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+bool qspiEraseSector(uint32_t sector_addr)
+{
+  uint8_t ret;
+
+  ret = BSP_QSPI_Erase_Sector(sector_addr);
 
   if (ret == QSPI_OK)
   {
@@ -325,8 +342,8 @@ uint8_t BSP_QSPI_Init(void)
 
 
   /* QSPI initialization */
-  /* ClockPrescaler set to 1, so QSPI clock = 240MHz / (1+1) = 120MHz */
-  hqspi.Init.ClockPrescaler     = 1;
+  /* ClockPrescaler set to 0, so QSPI clock = 64MHz / (1+0) = 64MHz */
+  hqspi.Init.ClockPrescaler     = 0;
   hqspi.Init.FifoThreshold      = 4;
   hqspi.Init.SampleShifting     = QSPI_SAMPLE_SHIFTING_HALFCYCLE;
   hqspi.Init.FlashSize          = POSITION_VAL(W25Q128FV_FLASH_SIZE) - 1;
@@ -339,20 +356,20 @@ uint8_t BSP_QSPI_Init(void)
 
   if (HAL_QSPI_Init(&hqspi) != HAL_OK)
   {
-    printf("HAL_QSPI_Init() fail\n");
+    logPrintf("HAL_QSPI_Init() fail\n");
     return QSPI_ERROR;
   }
 
   /* QSPI memory reset */
   if (QSPI_ResetMemory(&hqspi) != QSPI_OK)
   {
-    printf("QSPI_ResetMemory() fail\n");
+  	logPrintf("QSPI_ResetMemory() fail\n");
     return QSPI_NOT_SUPPORTED;
   }
 
   if (BSP_QSPI_Config() != QSPI_OK)
   {
-    printf("QSPI_Config() fail\n");
+  	logPrintf("QSPI_Config() fail\n");
     return QSPI_NOT_SUPPORTED;
   }
 
@@ -572,6 +589,50 @@ uint8_t BSP_QSPI_Erase_Block(uint32_t BlockAddress)
 
   /* Configure automatic polling mode to wait for end of erase */
   if (QSPI_AutoPollingMemReady(&hqspi, W25Q128FV_SUBSECTOR_ERASE_MAX_TIME) != QSPI_OK)
+  {
+    return QSPI_ERROR;
+  }
+
+  return QSPI_OK;
+}
+
+
+/**
+  * @brief  Erases the specified block of the QSPI memory.
+  * @param  BlockAddress: Block address to erase
+  * @retval QSPI memory status
+  */
+uint8_t BSP_QSPI_Erase_Sector(uint32_t SectorAddress)
+{
+  QSPI_CommandTypeDef s_command;
+
+  /* Initialize the erase command */
+  s_command.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+  s_command.Instruction       = SECTOR_ERASE_CMD;
+  s_command.AddressMode       = QSPI_ADDRESS_1_LINE;
+  s_command.AddressSize       = QSPI_ADDRESS_24_BITS;
+  s_command.Address           = SectorAddress;
+  s_command.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+  s_command.DataMode          = QSPI_DATA_NONE;
+  s_command.DummyCycles       = 0;
+  s_command.DdrMode           = QSPI_DDR_MODE_DISABLE;
+  s_command.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+  s_command.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+
+  /* Enable write operations */
+  if (QSPI_WriteEnable(&hqspi) != QSPI_OK)
+  {
+    return QSPI_ERROR;
+  }
+
+  /* Send the command */
+  if (HAL_QSPI_Command(&hqspi, &s_command, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return QSPI_ERROR;
+  }
+
+  /* Configure automatic polling mode to wait for end of erase */
+  if (QSPI_AutoPollingMemReady(&hqspi, W25Q128FV_SECTOR_ERASE_MAX_TIME) != QSPI_OK)
   {
     return QSPI_ERROR;
   }
