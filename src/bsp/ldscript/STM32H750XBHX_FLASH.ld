@@ -46,6 +46,9 @@ MEMORY
   RAM_D2     (xrw)    : ORIGIN = 0x30000000,   LENGTH = 288K
   RAM_D3     (xrw)    : ORIGIN = 0x38000000,   LENGTH = 64K
   FLASH    	 (rx)     : ORIGIN = 0x08000000,   LENGTH = 128K
+  
+  QSPI_FLASH (rx)     : ORIGIN = 0x90000000,   LENGTH = 16M
+  
 }
 
 /* Sections */
@@ -187,6 +190,14 @@ SECTIONS
     *(.non_cache*)   
     . = ALIGN(4);       
   } >RAM_D3 AT> FLASH 
+  
+    .ex_flash_tag :
+  {
+    . = ALIGN(4);      
+    KEEP(*(.ex_flash_tag))
+    KEEP(*(.ex_flash_tag*))   
+    . = ALIGN(4);       
+  } > QSPI_FLASH  
   
 
   .ARM.attributes 0 : { *(.ARM.attributes) }

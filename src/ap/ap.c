@@ -8,6 +8,9 @@
 
 #include "ap.h"
 
+// 아래 선언 사용하면 ST-Link로 다운 안되고, 디버그를 통해서만 가능함 //
+//__attribute__((section(".ex_flash_tag"))) const char ex_flash_str[256] = "This is Test Program";
+
 typedef struct
 {
   uint32_t pre_time;
