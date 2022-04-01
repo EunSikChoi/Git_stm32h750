@@ -40,12 +40,17 @@ _Min_Stack_Size = 0x400;	/* required amount of stack */
 /* Memories definition */
 MEMORY
 {
+  FLASH_NOR  (rx)     : ORIGIN = 0x08000000,   LENGTH = 128K
+  FLASH    	 (rx)     : ORIGIN = 0x90000000,   LENGTH = 4M
+
   DTCMRAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 128K
   ITCMRAM    (xrw)    : ORIGIN = 0x00000000,   LENGTH = 64K
   RAM_D1     (xrw)    : ORIGIN = 0x24000000,   LENGTH = 512K
   RAM_D2     (xrw)    : ORIGIN = 0x30000000,   LENGTH = 288K
   RAM_D3     (xrw)    : ORIGIN = 0x38000000,   LENGTH = 64K
-  FLASH    	 (rx)     : ORIGIN = 0x08000000,   LENGTH = 128K
+  
+  QSPI_FLASH (rx)     : ORIGIN = 0x90400000,   LENGTH = 12M
+
 }
 
 /* Sections */
@@ -55,6 +60,7 @@ SECTIONS
   .isr_vector :
   {
     . = ALIGN(4);
+    _isr_vector_addr = .;
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
   } >FLASH
@@ -178,7 +184,14 @@ SECTIONS
     libm.a ( * )
     libgcc.a ( * )
   }
-  
+ 
+   .ex_flash_tag :
+  {
+    . = ALIGN(4);      
+    KEEP(*(.ex_flash_tag))
+    KEEP(*(.ex_flash_tag*))   
+    . = ALIGN(4);       
+  } > QSPI_FLASH    
      
      .non_cache : 
   {

@@ -12,7 +12,7 @@
 void hwInit(void)
 {
 
-	bspInit();
+	//bspInit();
 
 	cliInit();
 
@@ -31,7 +31,7 @@ void hwInit(void)
 
   sdramInit();
 
-  qspiInit();
+  //qspiInit(); /* App 펌웨어 자체가 QSPI 영역에 존재 하기때문 초기화 하면 안됨  */
   flashInit();
 
 	gpioInit();
