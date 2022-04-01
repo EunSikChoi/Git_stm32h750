@@ -19,7 +19,25 @@ void sdMain(args_t *p_args);
 
 void apInit(void)
 {
+	void (**jump_func)(void) = (void (**)(void))(0x90000000 + 4);
+	uint32_t jump_addr;
+
+
 	cliOpen(_DEF_UART1, 57600);
+
+	jump_addr = (uint32_t)(*jump_func);
+
+	if (jump_addr > 0x90000000 && jump_addr < (0x90000000+16*1024*1024))// 16MB 보다 작은 주소 // 유효 주소 확인 //
+	{
+		logPrintf("Jump To 0x%X\n", jump_addr);
+		delay(50);
+		bspDeInit();
+		(*jump_func)();
+	}
+	else
+	{
+		logPrintf("Invalid Jump Address 0x%X\n", jump_addr);
+	}
 }
 
 void apMain(void)
@@ -37,7 +55,7 @@ void apMain(void)
 
 	while(1)
 	{
-		if(millis()-pre_time >= 1000) //
+		if(millis()-pre_time >= 100) //
 		{
 			pre_time = millis();
 

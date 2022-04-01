@@ -32,6 +32,27 @@ void bspInit(void)
   MPUConfig();
 }
 
+
+void bspDeInit(void)
+{
+  SCB_DisableICache();
+  SCB_DisableDCache();
+
+  HAL_RCC_DeInit();
+
+
+  // Disable Interrupts
+  //
+  for (int i=0; i<8; i++)
+  {
+    NVIC->ICER[i] = 0xFFFFFFFF;
+    __DSB();
+    __ISB();
+  }
+  SysTick->CTRL = 0;
+}
+
+
 void delay(uint32_t ms)
 {
 
@@ -214,7 +235,7 @@ void MPUConfig(void)
   MPU_InitStruct.SubRegionDisable = 0x00;
   MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
   MPU_InitStruct.DisableExec      = MPU_INSTRUCTION_ACCESS_ENABLE;
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+//  HAL_MPU_ConfigRegion(&MPU_InitStruct);
 #else
   /* Stringly Ordered */
   MPU_InitStruct.Number           = MPU_REGION_NUMBER3;
