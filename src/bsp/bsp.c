@@ -32,6 +32,7 @@ void bspInit(void)
   MPUConfig();
 }
 
+
 void delay(uint32_t ms)
 {
 
@@ -119,6 +120,8 @@ void SystemClock_Config(void)
   }
 }
 
+
+
 /* USER CODE BEGIN 4 */
 
 
@@ -205,7 +208,7 @@ void MPUConfig(void)
   /* Write-back, no write allocate */
   MPU_InitStruct.Number           = MPU_REGION_NUMBER3;
   MPU_InitStruct.BaseAddress      = 0x90000000;
-  MPU_InitStruct.Size             = MPU_REGION_SIZE_16MB;
+  MPU_InitStruct.Size             = MPU_REGION_SIZE_4MB;
   MPU_InitStruct.TypeExtField     = MPU_TEX_LEVEL0;
   MPU_InitStruct.IsCacheable      = MPU_ACCESS_CACHEABLE;
   MPU_InitStruct.IsBufferable     = MPU_ACCESS_BUFFERABLE;
