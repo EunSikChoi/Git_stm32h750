@@ -15,6 +15,8 @@ int main(void)
 
   apInit();
 
+  __disable_irq();
+
   apMain();
 
   return 0;

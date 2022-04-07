@@ -14,17 +14,19 @@ void hwInit(void)
 
 	bspInit();
 
-	//cliInit();
+	cliInit();
+  ledInit();
 
-	ledInit();
+	__disable_irq();
 
-	//uartInit();
-  //uartOpen(_DEF_UART1, 57600);
 
-	//logInit();
-	//logPrintf("\n\n");
-	//logPrintf("[ FW Begin... ]\r\n");
-	//logPrintf("Booting..Clock\t\t: %d Mhz\r\n", (int)HAL_RCC_GetSysClockFreq()/1000000);
+	uartInit();
+  uartOpen(_DEF_UART1, 57600);
+
+	logInit();
+	logPrintf("\n\n");
+	logPrintf("[ FW Begin... ]\r\n");
+	logPrintf("Booting..Clock\t\t: %d Mhz\r\n", (int)HAL_RCC_GetSysClockFreq()/1000000);
 
 
 	buttonInit();

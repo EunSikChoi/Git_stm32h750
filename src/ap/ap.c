@@ -11,7 +11,7 @@
 
 void apInit(void)
 {
-	//cliOpen(_DEF_UART1, 57600);
+	cliOpen(_DEF_UART1, 57600);
 }
 
 void apMain(void)
@@ -26,6 +26,8 @@ void apMain(void)
 		if(millis()-pre_time >= 500) //
 		{
 			pre_time = millis();
+
+			cliPrintf("Time %d\n" , pre_time);
 
 			ledToggle(_DEF_LED1); // LED
 			ledToggle(_DEF_LED2); // BLUE
